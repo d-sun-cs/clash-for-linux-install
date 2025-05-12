@@ -8,7 +8,7 @@
 clashoff >&/dev/null
 
 update-rc.d "$BIN_KERNEL_NAME" remove >&/dev/null
-rm -f "/etc/systemd/system/${BIN_KERNEL_NAME}.service"
+rm -f "/etc/init.d/${BIN_KERNEL_NAME}"
 service "$BIN_KERNEL_NAME" reload
 
 rm -rf "$CLASH_BASE_DIR"
