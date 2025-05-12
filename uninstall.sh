@@ -3,7 +3,7 @@
 . script/common.sh >&/dev/null
 . script/clashctl.sh >&/dev/null
 
-_valid_env
+# _valid_env
 
 clashoff >&/dev/null
 
