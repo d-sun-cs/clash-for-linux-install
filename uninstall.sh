@@ -7,9 +7,9 @@ _valid_env
 
 clashoff >&/dev/null
 
-systemctl disable "$BIN_KERNEL_NAME" >&/dev/null
+update-rc.d "$BIN_KERNEL_NAME" remove >&/dev/null
 rm -f "/etc/systemd/system/${BIN_KERNEL_NAME}.service"
-systemctl daemon-reload
+service "$BIN_KERNEL_NAME" reload
 
 rm -rf "$CLASH_BASE_DIR"
 sed -i '/clashupdate/d' "$CLASH_CRON_TAB" >&/dev/null

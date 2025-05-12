@@ -47,8 +47,8 @@ ExecStart=${BIN_KERNEL} -d ${CLASH_BASE_DIR} -f ${CLASH_CONFIG_RUNTIME}
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable "$BIN_KERNEL_NAME" >&/dev/null || _failcat '💥' "设置自启失败" && _okcat '🚀' "已设置开机自启"
+service "$BIN_KERNEL_NAME" reload
+update-rc.d "$BIN_KERNEL_NAME" defaults >&/dev/null || _failcat '💥' "设置自启失败" && _okcat '🚀' "已设置开机自启"
 
 clashui
 _okcat '🎉' 'enjoy 🎉'
