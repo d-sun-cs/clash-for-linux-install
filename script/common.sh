@@ -84,7 +84,7 @@ _set_rc() {
     }
 
     [ -f "$SHELL_RC" ] && [ -n "$(tail -n 1 "$SHELL_RC")" ] && echo >>"$SHELL_RC"
-    echo "source $CLASH_SCRIPT_DIR/common.sh && source $CLASH_SCRIPT_DIR/clashctl.sh && watch_proxy" |
+    echo "source $CLASH_SCRIPT_DIR/common.sh && source $CLASH_SCRIPT_DIR/clashctl.sh && clashtun on" |
         tee -a "$SHELL_RC" >&/dev/null
 }
 
