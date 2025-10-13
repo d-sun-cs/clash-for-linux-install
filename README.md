@@ -22,6 +22,18 @@
 下述命令适用于 `x86_64` 架构，其他架构请戳：[一键安装-多架构](https://github.com/nelvko/clash-for-linux-install/wiki#%E4%B8%80%E9%94%AE%E5%AE%89%E8%A3%85-%E5%A4%9A%E6%9E%B6%E6%9E%84)
 
 ```bash
+git clone --branch master --depth 1 https://github.com/d-sun-cs/clash-for-linux-install.git \
+  && cd clash-for-linux-install \
+  && sudo bash install.sh
+```
+
+```bash
+git clone --branch master --depth 1 https://gh-proxy.com/https://github.com/d-sun-cs/clash-for-linux-install.git \
+  && cd clash-for-linux-install \
+  && sudo bash install.sh
+```
+
+```bash
 git clone --branch master --depth 1 https://gh-proxy.com/https://github.com/nelvko/clash-for-linux-install.git \
   && cd clash-for-linux-install \
   && sudo bash install.sh
