@@ -9,7 +9,7 @@ _valid_env
 
 _get_kernel
 
-/bin/install -D <(gzip -dc "$ZIP_KERNEL") "${RESOURCES_BIN_DIR}/$BIN_KERNEL_NAME"
+/usr/bin/install -D <(gzip -dc "$ZIP_KERNEL") "${RESOURCES_BIN_DIR}/$BIN_KERNEL_NAME"
 tar -xf "$ZIP_SUBCONVERTER" -C "$RESOURCES_BIN_DIR"
 tar -xf "$ZIP_YQ" -C "${RESOURCES_BIN_DIR}"
 # shellcheck disable=SC2086
@@ -51,6 +51,11 @@ systemctl daemon-reload
 systemctl enable "$BIN_KERNEL_NAME" >&/dev/null || _failcat '💥' "设置自启失败" && _okcat '🚀' "已设置开机自启"
 
 clashui
+clashsecret "$(_get_random_val)" >/dev/null
+clashsecret
+clashctl
+# shellcheck disable=SC2016
+[ "$SUDO_USER" != 'root' ] && _okcat '请执行 clashon 开启代理环境'
 _okcat '🎉' 'enjoy 🎉'
-clash
+clashupgrade
 _quit

@@ -8,6 +8,7 @@ URL_GH_PROXY='https://gh-proxy.com/'
 URL_CLASH_UI="http://board.zash.run.place"
 
 SCRIPT_BASE_DIR='./script'
+SCRIPT_FISH="${SCRIPT_BASE_DIR}/clashctl.fish"
 
 RESOURCES_BASE_DIR='./resources'
 RESOURCES_BIN_DIR="${RESOURCES_BASE_DIR}/bin"
@@ -37,19 +38,31 @@ _set_var() {
         user=$SUDO_USER
         home=$(awk -F: -v user="$SUDO_USER" '$1==user{print $6}' /etc/passwd)
     }
-    # rc文件路径
+
     [ -n "$BASH_VERSION" ] && {
         _SHELL=bash
-        SHELL_RC="${home}/.bashrc"
     }
     [ -n "$ZSH_VERSION" ] && {
         _SHELL=zsh
-        SHELL_RC="${home}/.zshrc"
+    }
+    [ -n "$fish_version" ] && {
+        _SHELL=fish
+    }
+
+    # rc文件路径
+    command -v bash >&/dev/null && {
+        SHELL_RC_BASH="${home}/.bashrc"
+    }
+    command -v zsh >&/dev/null && {
+        SHELL_RC_ZSH="${home}/.zshrc"
+    }
+    command -v fish >&/dev/null && {
+        SHELL_RC_FISH="${home}/.config/fish/conf.d/clashctl.fish"
     }
 
     # 定时任务路径
     local os_info=$(cat /etc/os-release)
-    echo "$os_info" | grep -iqsE "rhel|centos" && CLASH_CRON_TAB="/var/spool/cron/$user"
+    echo "$os_info" | grep -iqsE "rhel|centos|openEuler|Rocky|AlmaLinux" && CLASH_CRON_TAB="/var/spool/cron/$user"
     echo "$os_info" | grep -iqsE "debian|ubuntu" && CLASH_CRON_TAB="/var/spool/cron/crontabs/$user"
 }
 _set_var
@@ -79,13 +92,14 @@ _set_bin
 
 _set_rc() {
     [ "$1" = "unset" ] && {
-        sed -i "\|$CLASH_SCRIPT_DIR|d" "$SHELL_RC" 2>/dev/null
+        sed -i "\|$CLASH_SCRIPT_DIR|d" "$SHELL_RC_BASH" "$SHELL_RC_ZSH" 2>/dev/null
+        rm -f "$SHELL_RC_FISH" 2>/dev/null
         return
     }
 
-    [ -f "$SHELL_RC" ] && [ -n "$(tail -n 1 "$SHELL_RC")" ] && echo >>"$SHELL_RC"
     echo "source $CLASH_SCRIPT_DIR/common.sh && source $CLASH_SCRIPT_DIR/clashctl.sh && watch_proxy" |
-        tee -a "$SHELL_RC" >&/dev/null
+        tee -a "$SHELL_RC_BASH" "$SHELL_RC_ZSH" >&/dev/null
+    [ -n "$SHELL_RC_FISH" ] && /usr/bin/install $SCRIPT_FISH "$SHELL_RC_FISH"
 }
 
 # 默认集成、安装mihomo内核
@@ -120,8 +134,7 @@ _get_random_port() {
 }
 
 function _get_proxy_port() {
-    local mixed_port=$(sudo "$BIN_YQ" '.mixed-port // ""' $CLASH_CONFIG_RUNTIME)
-    MIXED_PORT=${mixed_port:-7890}
+    MIXED_PORT=$(sudo "$BIN_YQ" '.mixed-port' $CLASH_CONFIG_RUNTIME)
 
     _is_already_in_use "$MIXED_PORT" "$BIN_KERNEL_NAME" && {
         local newPort=$(_get_random_port)
@@ -134,14 +147,16 @@ function _get_proxy_port() {
 
 function _get_ui_port() {
     local ext_addr=$(sudo "$BIN_YQ" '.external-controller // ""' $CLASH_CONFIG_RUNTIME)
-    local ext_port=${ext_addr##*:}
-    UI_PORT=${ext_port:-9090}
-
-    _is_already_in_use "$UI_PORT" "$BIN_KERNEL_NAME" && {
+    local ext_ip=${ext_addr%%:*}
+    EXT_IP=$ext_ip
+    EXT_PORT=${ext_addr##*:}
+    # ip route get 1.1.1.1 | grep -oP 'src \K\S+'
+    [ "$ext_ip" = '0.0.0.0' ] && EXT_IP=$(hostname -I | awk '{print $1}')
+    _is_already_in_use "$EXT_PORT" "$BIN_KERNEL_NAME" && {
         local newPort=$(_get_random_port)
-        local msg="端口占用：${UI_PORT} 🎲 随机分配：$newPort"
-        sudo "$BIN_YQ" -i ".external-controller = \"0.0.0.0:$newPort\"" $CLASH_CONFIG_RUNTIME
-        UI_PORT=$newPort
+        local msg="端口占用：${EXT_PORT} 🎲 随机分配：$newPort"
+        sudo "$BIN_YQ" -i ".external-controller = \"$ext_ip:$newPort\"" $CLASH_CONFIG_RUNTIME
+        EXT_PORT=$newPort
         _failcat '🎯' "$msg"
     }
 }
@@ -158,6 +173,10 @@ _get_color_msg() {
     local msg=$2
     local reset="\033[0m"
     printf "%b%s%b\n" "$color" "$msg" "$reset"
+}
+
+_get_random_val() {
+    cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 6
 }
 
 function _okcat() {
@@ -179,7 +198,7 @@ function _failcat() {
 function _quit() {
     local user=root
     [ -n "$SUDO_USER" ] && user=$SUDO_USER
-    sudo -u "$user" "$_SHELL"
+    exec sudo -u "$user" -- "$_SHELL" -i
 }
 
 function _error_quit() {
@@ -190,12 +209,12 @@ function _error_quit() {
         local msg="${emoji} $1"
         _get_color_msg "$color" "$msg"
     }
-    exec $_SHELL
+    exec $_SHELL -i
 }
 
 _is_bind() {
     local port=$1
-    { sudo ss -tulnp || sudo netstat -tulnp; } | grep ":${port}\b"
+    { sudo ss -lnptu || sudo netstat -lnptu; } | grep ":${port}\b"
 }
 
 _is_already_in_use() {
@@ -210,17 +229,20 @@ function _is_root() {
 
 function _valid_env() {
     _is_root || _error_quit "需要 root 或 sudo 权限执行"
-    [ -n "$ZSH_VERSION" ] && [ -n "$BASH_VERSION" ] && _error_quit "仅支持：bash、zsh"
     [ "$(ps -p 1 -o comm=)" != "systemd" ] && _error_quit "系统不具备 systemd"
 }
 
 function _valid_config() {
     [ -e "$1" ] && [ "$(wc -l <"$1")" -gt 1 ] && {
         local cmd msg
-        cmd="$BIN_KERNEL -d $(dirname "$1") -f $1 -t"
+        cmd="sudo $BIN_KERNEL -d $(dirname "$1") -f $1 -t"
         msg=$(eval "$cmd") || {
             eval "$cmd"
-            echo "$msg" | grep -qs "unsupport proxy type" && _error_quit "不支持的代理协议，请安装 mihomo 内核"
+            echo "$msg" | grep -qs "unsupport proxy type" && {
+                local prefix="检测到订阅中包含不受支持的代理协议"
+                [ "$BIN_KERNEL_NAME" = "clash" ] && _error_quit "${prefix}, 推荐安装使用 mihomo 内核"
+                _error_quit "${prefix}, 请检查并升级内核版本"
+            }
         }
     }
 }
@@ -251,29 +273,32 @@ _download_clash() {
     esac
 
     _okcat '⏳' "正在下载：clash：${arch} 架构..."
-    local clash_zip="${ZIP_BASE_DIR}/$(basename $url)"
+    ZIP_CLASH="${ZIP_BASE_DIR}/$(basename $url)"
     curl \
         --progress-bar \
         --show-error \
         --fail \
         --insecure \
-        --connect-timeout 15 \
+        --location \
+        --connect-timeout 5 \
+        --max-time 15 \
         --retry 1 \
-        --output "$clash_zip" \
+        --output "$ZIP_CLASH" \
         "$url"
-    echo $sha256sum "$clash_zip" | sha256sum -c ||
+    echo $sha256sum "$ZIP_CLASH" | sha256sum -c ||
         _error_quit "下载失败：请自行下载对应版本至 ${ZIP_BASE_DIR} 目录下：https://downloads.clash.wiki/ClashPremium/"
 }
 
 _download_raw_config() {
     local dest=$1
     local url=$2
-    local agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0'
+    local agent='clash-verge/v2.0.4'
     sudo curl \
         --silent \
         --show-error \
         --insecure \
-        --connect-timeout 4 \
+        --location \
+        --max-time 5 \
         --retry 1 \
         --user-agent "$agent" \
         --output "$dest" \
@@ -297,6 +322,7 @@ _download_convert_config() {
         curl \
             --get \
             --silent \
+            --location \
             --output /dev/null \
             --data-urlencode "target=$target" \
             --data-urlencode "url=$url" \
@@ -332,11 +358,11 @@ _start_convert() {
     # 子shell运行，屏蔽kill时的输出
     (sudo "$BIN_SUBCONVERTER" 2>&1 | sudo tee "$BIN_SUBCONVERTER_LOG" >/dev/null &)
     while ! _is_bind "$BIN_SUBCONVERTER_PORT" >&/dev/null; do
-        sleep 0.05s
+        sleep 1s
         local now=$(date +%s)
         [ $((now - start)) -gt 1 ] && _error_quit "订阅转换服务未启动，请检查日志：$BIN_SUBCONVERTER_LOG"
     done
 }
 _stop_convert() {
-    pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
+    sudo pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
 }

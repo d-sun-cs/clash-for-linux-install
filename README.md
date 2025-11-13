@@ -7,15 +7,15 @@
 ![preview](resources/preview.png)
 
 - 默认安装 `mihomo` 内核，[可选安装](https://github.com/nelvko/clash-for-linux-install/wiki/FAQ#%E5%AE%89%E8%A3%85-clash-%E5%86%85%E6%A0%B8) `clash`。
-- 自动使用 [subconverter](https://github.com/tindy2013/subconverter) 进行本地订阅转换。
+- 支持使用 [subconverter](https://github.com/tindy2013/subconverter) 进行本地订阅转换。
 - 多架构支持，适配主流 `Linux` 发行版：`CentOS 7.6`、`Debian 12`、`Ubuntu 24.04.1 LTS`。
 
 ## 快速开始
 
 ### 环境要求
 
-- 用户权限：`root`、`sudo`。（无权限可参考：[#91](https://github.com/nelvko/clash-for-linux-install/issues/91)）
-- `shell` 支持：`bash`、`zsh`。
+- 用户权限：`root` 或 `sudo` 用户。普通用户请戳：[#91](https://github.com/nelvko/clash-for-linux-install/issues/91)
+- `shell` 支持：`bash`、`zsh`、`fish`。
 
 ### 一键安装
 
@@ -41,47 +41,39 @@ git clone --branch master --depth 1 https://gh-proxy.com/https://github.com/d-su
 
 ### 命令一览
 
-执行 `clash` 列出开箱即用的快捷命令。
+执行 `clashctl` 列出开箱即用的快捷命令。
 
-> 兼容多种命令风格
 
 ```bash
-$ clash
+$ clashctl
 Usage:
-    clash     COMMAND [OPTION]
-    mihomo    COMMAND [OPTION]
-    clashctl  COMMAND [OPTION]
-    mihomoctl COMMAND [OPTION]
-
+    clashctl    COMMAND [OPTION]
+    
 Commands:
     on                   开启代理
     off                  关闭代理
     ui                   面板地址
     status               内核状况
+    proxy    [on|off]    系统代理
     tun      [on|off]    Tun 模式
     mixin    [-e|-r]     Mixin 配置
     secret   [SECRET]    Web 密钥
     update   [auto|log]  更新订阅
 ```
 
+💡`clashon` 等同于 `clashctl on`，`Tab` 补全更方便！
+
 ### 优雅启停
 
 ```bash
-$ clashoff
-😼 已关闭代理环境
-
 $ clashon
 😼 已开启代理环境
+
+$ clashoff
+😼 已关闭代理环境
 ```
-
-<details>
-
-<summary>原理</summary>
-
-- 使用 `systemctl` 控制 `clash` 启停，并调整代理环境变量的值（http_proxy 等）。应用程序在发起网络请求时，会通过其指定的代理地址转发流量，不调整会造成：关闭代理但未卸载代理变量导致仍转发请求、开启代理后未设置代理地址导致请求不转发。
-- `clashon` 等命令封装了上述流程。
-
-</details>
+- 启停代理内核的同时，设置系统代理。
+- 亦可通过 `clashproxy` 单独控制系统代理。
 
 ### Web 控制台
 
@@ -106,7 +98,7 @@ $ clashsecret
 ```
 
 - 通过浏览器打开 Web 控制台，实现可视化操作：切换节点、查看日志等。
-- 控制台密钥默认为空，若暴露到公网使用建议更新密钥。
+- 若暴露到公网使用建议定期更换密钥。
 
 ### 更新订阅
 
@@ -154,9 +146,9 @@ $ clashmixin -r
 😼 less 查看 运行时 配置
 ```
 
-- 将自定义配置写在 `Mixin` 而不是原配置中，可避免更新订阅后丢失自定义配置。
-- 运行时配置是订阅配置和 `Mixin` 配置的并集。
-- 相同配置项优先级：`Mixin` 配置 > 订阅配置。
+- 持久化：将自定义配置项写入`Mixin`（`mixin.yaml`），而非原订阅配置（`config.yaml`），可避免更新订阅后丢失。
+- 配置加载：代理内核启动时使用 `runtime.yaml`，它是订阅配置与 `Mixin` 配置的合并结果集，相同配置项以 `Mixin` 为准。
+- 注意：因此直接修改 `config.yaml` 并不会生效。
 
 ### 卸载
 
@@ -172,11 +164,11 @@ sudo bash uninstall.sh
 
 - [Clash 知识库](https://clash.wiki/)
 - [Clash 家族下载](https://www.clash.la/releases/)
-- [Clash Premium 2023.08.17](https://downloads.clash.wiki/ClashPremium/)
-- [mihomo v1.19.2](https://github.com/MetaCubeX/mihomo)
-- [subconverter v0.9.0：本地订阅转换](https://github.com/tindy2013/subconverter)
-- [yacd v0.3.8：Web 控制台](https://github.com/haishanh/yacd)
-- [yq v4.45.1：处理 yaml](https://github.com/mikefarah/yq)
+- [Clash Premium](https://downloads.clash.wiki/ClashPremium/)
+- [mihomo](https://github.com/MetaCubeX/mihomo)
+- [subconverter: 订阅转换](https://github.com/tindy2013/subconverter)
+- [yacd: Web 控制台](https://github.com/haishanh/yacd)
+- [yq: 处理 yaml](https://github.com/mikefarah/yq)
 
 ## Star History
 
